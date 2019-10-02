@@ -86,7 +86,7 @@ namespace MLAgents
     /// The mode is determined by the presence or absence of a Communicator. In
     /// the presence of a communicator, the academy is run in training mode where
     /// the states and observations of each agent are sent through the
-    /// communicator. In the absence of a communciator, the academy is run in
+    /// communicator. In the absence of a communicator, the academy is run in
     /// inference mode where the agent behavior is determined by the brain
     /// attached to it (which may be internal, heuristic or player).
     /// </remarks>
@@ -104,11 +104,11 @@ namespace MLAgents
         private Vector3 m_OriginalGravity;
 
         /// Temporary storage for global fixedDeltaTime value
-        /// Used to restore oringal value when deriving Academy modifies it
+        /// Used to restore original value when deriving Academy modifies it
         private float m_OriginalFixedDeltaTime;
 
         /// Temporary storage for global maximumDeltaTime value
-        /// Used to restore oringal value when deriving Academy modifies it
+        /// Used to restore original value when deriving Academy modifies it
         private float m_OriginalMaximumDeltaTime;
 
         // Fields provided in the Inspector
@@ -134,7 +134,7 @@ namespace MLAgents
         /// </summary>
         /// <remarks>
         /// Default reset parameters are specified in the academy Editor, and can
-        /// be modified when training with an external Brain by passinga config
+        /// be modified when training with an external Brain by passing a config
         /// dictionary at reset.
         /// </remarks>
         [SerializeField]
@@ -165,7 +165,7 @@ namespace MLAgents
         /// each time the environment is reset.
         int m_EpisodeCount;
 
-        /// The number of steps completed within the current episide. Incremented
+        /// The number of steps completed within the current episode. Incremented
         /// each time a step is taken in the environment. Is reset to 0 during
         /// <see cref="AcademyReset"/>.
         int m_StepCount;
@@ -217,11 +217,11 @@ namespace MLAgents
         // they have requested a decision.
         public event System.Action AgentAct;
 
-        // Sigals to all the agents each time the Academy force resets.
+        // Signals to all the agents each time the Academy force resets.
         public event System.Action AgentForceReset;
 
         /// <summary>
-        /// Monobehavior function called at the very beginning of environment
+        /// MonoBehavior function called at the very beginning of environment
         /// creation. Academy uses this time to initialize internal data
         /// structures, initialize the environment and check for the existence
         /// of a communicator.
@@ -232,7 +232,7 @@ namespace MLAgents
         }
 
         // Used to read Python-provided environment parameters
-        private int ReadArgs()
+        private static int ReadArgs()
         {
             var args = System.Environment.GetCommandLineArgs();
             var inputPort = "";
@@ -269,7 +269,7 @@ namespace MLAgents
                 brain.SetToControlledExternally();
             }
 
-            // Try to launch the communicator by usig the arguments passed at launch
+            // Try to launch the communicator by using the arguments passed at launch
             try
             {
                 communicator = new RpcCommunicator(
@@ -280,7 +280,7 @@ namespace MLAgents
             }
             // If it fails, we check if there are any external brains in the scene
             // If there are : Launch the communicator on the default port
-            // If there arn't, there is no need for a communicator and it is set
+            // If there aren't, there is no need for a communicator and it is set
             // to null
             catch
             {
@@ -327,7 +327,7 @@ namespace MLAgents
 
             BrainDecideAction += () => { };
             DestroyAction += () => { };
-            AgentSetStatus += (i) => { };
+            AgentSetStatus += i => { };
             AgentResetIfDone += () => { };
             AgentSendState += () => { };
             AgentAct += () => { };
@@ -438,7 +438,7 @@ namespace MLAgents
 
                 // This signals to the academy that at the next environment step
                 // the engine configurations need updating to the respective mode
-                // (i.e. training vs inference) configuraiton.
+                // (i.e. training vs inference) configuration.
                 m_ModeSwitched = true;
             }
         }
