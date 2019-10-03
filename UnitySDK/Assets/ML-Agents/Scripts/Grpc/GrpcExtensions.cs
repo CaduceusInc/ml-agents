@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Google.Protobuf;
+using Google.Protobuf.Collections;
 using MLAgents.CommunicatorObjects;
 using UnityEngine;
 
@@ -58,7 +59,7 @@ namespace MLAgents
             {
                 VectorObservationSize = bp.vectorObservationSize,
                 NumStackedVectorObservations = bp.numStackedVectorObservations,
-                VectorActionSize = {bp.vectorActionSize},
+                VectorActionSize = { bp.vectorActionSize },
                 VectorActionSpaceType =
                     (SpaceTypeProto)bp.vectorActionSpaceType,
                 BrainName = name,
@@ -133,6 +134,11 @@ namespace MLAgents
             return localCameraResolutions;
         }
 
+        /// <summary>
+        /// Convert a BrainParametersProto to a BrainParameters struct.
+        /// </summary>
+        /// <param name="bpp">An instance of a brain parameters protobuf object.</param>
+        /// <returns>A BrainParameters struct.</returns>
         public static BrainParameters ToBrainParameters(this BrainParametersProto bpp)
         {
             var bp = new BrainParameters
@@ -147,6 +153,61 @@ namespace MLAgents
                 vectorActionSpaceType = (SpaceType)bpp.VectorActionSpaceType
             };
             return bp;
+        }
+
+        /// <summary>
+        /// Convert a MapField to ResetParameters.
+        /// </summary>
+        /// <param name="floatParams">The mapping of strings to floats from a protobuf MapField.</param>
+        /// <returns></returns>
+        public static ResetParameters ToResetParameters(this MapField<string, float> floatParams)
+        {
+            return new ResetParameters(floatParams);
+        }
+
+        /// <summary>
+        /// Convert an EnvironmnetParametersProto protobuf object to an EnvironmentResetParameters struct.
+        /// </summary>
+        /// <param name="epp">The instance of the EnvironmentParametersProto object.</param>
+        /// <returns>A new EnvironmentResetParameters struct.</returns>
+        public static EnvironmentResetParameters ToEnvironmentResetParameters(this EnvironmentParametersProto epp)
+        {
+            return new EnvironmentResetParameters
+            {
+                resetParameters = epp.FloatParameters?.ToResetParameters(),
+                customResetParameters = epp.CustomResetParameters
+                
+            };
+        }
+
+        public static UnityRLInitParameters ToUnityRLInitParameters(this UnityRLInitializationInputProto inputProto)
+        {
+            return new UnityRLInitParameters
+            {
+                seed = inputProto.Seed
+            };
+        }
+
+        public static AgentAction ToAgentAction(this AgentActionProto aap)
+        {
+            return new AgentAction
+            {
+                vectorActions = aap.VectorActions.ToArray(),
+                textActions = aap.TextActions,
+                memories = aap.Memories.ToList(),
+                value = aap.Value,
+                customAction = aap.CustomAction
+            };
+        }
+
+        public static List<AgentAction> ToAgentActionList(this UnityRLInputProto.Types.ListAgentActionProto proto)
+        {
+            var agentActions = new List<AgentAction>(proto.Value.Count);
+            foreach (var ap in proto.Value)
+            {
+                agentActions.Add(ap.ToAgentAction());
+            }
+            return agentActions;
         }
     }
 }

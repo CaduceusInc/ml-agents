@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using MLAgents.CommunicatorObjects;
@@ -49,15 +50,33 @@ namespace MLAgents
         /// <summary>
         /// An RNG seed sent from the python process to Unity.
         /// </summary>
-        int seed;
+        public int seed;
     }
     public struct UnityRLInputParameters
     {
         /// <summary>
         /// Boolean sent back from python to indicate whether or not training is happening.
         /// </summary>
-        bool isTraining;
+        public bool isTraining;
     }
+    
+    /// <summary>
+    /// Delegate for handling quite events sent back from the communicator.
+    /// </summary>
+    public delegate void QuitCommandHandler();
+    
+    /// <summary>
+    /// Delegate for handling reset parameter updates sent from the communicator.
+    /// </summary>
+    /// <param name="resetParams"></param>
+    public delegate void ResetCommandHandler(EnvironmentResetParameters resetParams);
+    
+    /// <summary>
+    /// Delegate to handle UnityRLInputParameters updates from the communicator.
+    /// </summary>
+    /// <param name="inputParams"></param>
+    public delegate void RLInputReceivedHandler(UnityRLInputParameters inputParams);
+    
     /**
     This is the interface of the Communicators.
     This does not need to be modified nor implemented to create a Unity environment.
@@ -96,23 +115,51 @@ namespace MLAgents
      */
     public interface ICommunicator
     {
+        
         /// <summary>
-        /// Initialize the communicator by sending the first UnityOutput and receiving the
-        /// first UnityInput. The second UnityInput is stored in the unityInput argument.
+        /// Quit was received by the communicator.
         /// </summary>
-        /// <returns>The first Unity Input.</returns>
-        /// <param name="unityOutput">The first Unity Output.</param>
-        /// <param name="unityInput">The second Unity input.</param>
-        UnityInputProto Initialize(UnityOutputProto unityOutput,
-            out UnityInputProto unityInput);
+        event QuitCommandHandler QuitCommandReceived;
+
+        
+        /// <summary>
+        /// Reset command sent back from the communicator.
+        /// </summary>
+        event ResetCommandHandler ResetCommandReceived;
 
         /// <summary>
-        /// Send a UnityOutput and receives a UnityInput.
+        /// Unity RL Input was received by the communicator.
         /// </summary>
-        /// <returns>The next UnityInput.</returns>
-        /// <param name="unityOutput">The UnityOutput to be sent.</param>
-        UnityInputProto Exchange(UnityOutputProto unityOutput);
+        event RLInputReceivedHandler RLInputReceived;
 
+        /// <summary>
+        /// Sends the academy parameters through the Communicator.
+        /// Is used by the academy to send the AcademyParameters to the communicator.
+        /// </summary>
+        /// <returns>The External Initialization Parameters received.</returns>
+        /// <param name="initParameters">The Unity Initialization Parameters to be sent.</param>
+        /// <param name="broadcastHub">The BroadcastHub to get the controlled brains.</param>
+        UnityRLInitParameters Initialize(CommunicatorInitParameters initParameters,
+            BroadcastHub broadcastHub);
+
+        /// <summary>
+        /// Sends the observations. If at least one brain has an agent in need of
+        /// a decision or if the academy is done, the data is sent via
+        /// Communicator. Else, a new step is realized. The data can only be
+        /// sent once all the brains that subscribed to the batcher have tried
+        /// to send information.
+        /// </summary>
+        /// <param name="key">Batch Key.</param>
+        /// <param name="agentInfos">Agent info.</param>
+        void PutObservations(string key, Dictionary<Agent,AgentInfo> agentInfos);
+
+        /// <summary>
+        /// Gets the AgentActions based on the batching key.
+        /// </summary>
+        /// <param name="key">A key to identify which actions to get</param>
+        /// <returns></returns>
+        List<Tuple<Agent, AgentAction>> GetActions(string key);
+        
         /// <summary>
         /// Close the communicator gracefully on both sides of the communication.
         /// </summary>

@@ -15,17 +15,28 @@ namespace MLAgents
             public float value;
         }
 
+        public ResetParameters() { }
+
+        public ResetParameters(IDictionary<string, float> dict) : base(dict)
+        {
+            UpdateResetParameters();
+        }
+
+        private void UpdateResetParameters()
+        {
+            m_ResetParameters.Clear();
+            foreach (var pair in this)
+            {
+                m_ResetParameters.Add(new ResetParameter { key = pair.Key, value = pair.Value });
+            }
+        }
+
         [FormerlySerializedAs("resetParameters")]
         [SerializeField] private List<ResetParameter> m_ResetParameters = new List<ResetParameter>();
 
         public void OnBeforeSerialize()
         {
-            m_ResetParameters.Clear();
-
-            foreach (var pair in this)
-            {
-                m_ResetParameters.Add(new ResetParameter { key = pair.Key, value = pair.Value });
-            }
+            UpdateResetParameters();
         }
 
         public void OnAfterDeserialize()

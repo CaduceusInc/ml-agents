@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -21,27 +22,19 @@ namespace MLAgents
         protected Dictionary<Agent, AgentInfo> m_AgentInfos =
             new Dictionary<Agent, AgentInfo>(1024);
 
-        protected Batcher m_BrainBatcher;
+        protected ICommunicator m_Communicator;
 
         [System.NonSerialized]
         private bool m_IsInitialized;
 
         /// <summary>
-        /// Sets the Batcher of the Brain. The brain will call the batcher at every step and give
-        /// it the agent's data using SendBrainInfo at each DecideAction call.
+        /// Sets the Batcher of the Brain. The brain will call the communicator at every step and give
+        /// it the agent's data using PutObservations at each DecideAction call.
         /// </summary>
-        /// <param name="batcher"> The Batcher the brain will use for the current session</param>
-        public void SetBatcher(Batcher batcher)
+        /// <param name="communicator"> The Batcher the brain will use for the current session</param>
+        public void SetCommunicator(ICommunicator communicator)
         {
-            if (batcher == null)
-            {
-                m_BrainBatcher = null;
-            }
-            else
-            {
-                m_BrainBatcher = batcher;
-                m_BrainBatcher.SubscribeBrain(name);
-            }
+            m_Communicator = communicator ?? null;
             LazyInitialize();
         }
 
@@ -94,7 +87,18 @@ namespace MLAgents
         /// </summary>
         private void BrainDecideAction()
         {
-            m_BrainBatcher?.SendBrainInfo(name, m_AgentInfos);
+            m_Communicator?.PutObservations(name, m_AgentInfos);
+            var actions = m_Communicator?.GetActions(name);
+            if (actions != null)
+                foreach (var tuple in actions)
+                {
+                    tuple.Item1.UpdateVectorAction(tuple.Item2.vectorActions);
+                    tuple.Item1.UpdateMemoriesAction(tuple.Item2.memories);
+                    tuple.Item1.UpdateTextAction(tuple.Item2.textActions);
+                    tuple.Item1.UpdateValueAction(tuple.Item2.value);
+                    tuple.Item1.UpdateCustomAction(tuple.Item2.customAction);
+                }
+
             DecideAction();
         }
 

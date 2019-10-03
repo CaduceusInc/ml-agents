@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.IO;
 using System.Linq;
+using MLAgents.CommunicatorObjects;
 using UnityEngine.Serialization;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -180,7 +181,7 @@ namespace MLAgents
         bool m_ModeSwitched;
 
         /// Pointer to the batcher currently in use by the Academy.
-        Batcher m_BrainBatcher;
+        ICommunicator m_Communicator;
 
         // Flag used to keep track of the first time the Academy is reset.
         bool m_FirstAcademyReset;
@@ -257,7 +258,6 @@ namespace MLAgents
             m_OriginalMaximumDeltaTime = Time.maximumDeltaTime;
 
             InitializeAcademy();
-            ICommunicator communicator;
 
             var exposedBrains = broadcastHub.broadcastingBrains.Where(x => x != null).ToList();
             var controlledBrains = broadcastHub.broadcastingBrains.Where(
@@ -272,7 +272,7 @@ namespace MLAgents
             // Try to launch the communicator by using the arguments passed at launch
             try
             {
-                communicator = new RpcCommunicator(
+                m_Communicator = new RpcCommunicator(
                     new CommunicatorInitParameters
                     {
                         port = ReadArgs()
@@ -284,10 +284,10 @@ namespace MLAgents
             // to null
             catch
             {
-                communicator = null;
+                m_Communicator = null;
                 if (enumerableBrains.Length > 0)
                 {
-                    communicator = new RpcCommunicator(
+                    m_Communicator = new RpcCommunicator(
                         new CommunicatorInitParameters
                         {
                             port = 5005
@@ -295,17 +295,21 @@ namespace MLAgents
                 }
             }
 
-            m_BrainBatcher = new Batcher(communicator);
 
             foreach (var trainingBrain in exposedBrains)
             {
-                trainingBrain.SetBatcher(m_BrainBatcher);
+                trainingBrain.SetCommunicator(m_Communicator);
             }
 
-            if (communicator != null)
+            if (m_Communicator != null)
             {
+                m_Communicator.QuitCommandReceived += OnQuitCommandReceived;
+                m_Communicator.ResetCommandReceived += UpdateResetParameters;
+                m_Communicator.RLInputReceived += OnRLInputReceived; 
+                
+
                 m_IsCommunicatorOn = true;
-                var inputParameters = m_BrainBatcher.SendAcademyParameters(
+                var inputParameters = m_Communicator.Initialize(
                     new CommunicatorInitParameters
                     {
                         version = k_ApiVersion,
@@ -317,7 +321,7 @@ namespace MLAgents
                             customResetParameters = customResetParameters
                         }
                     }, broadcastHub);
-                Random.InitState(inputParameters.Seed);
+                Random.InitState(inputParameters.seed);
             }
 
             // If a communicator is enabled/provided, then we assume we are in
@@ -333,24 +337,32 @@ namespace MLAgents
             AgentAct += () => { };
             AgentForceReset += () => { };
 
-
-            // Configure the environment using the configurations provided by
-            // the developer in the Editor.
-            SetIsInference(!m_BrainBatcher.GetIsTraining());
             ConfigureEnvironment();
         }
 
-        private void UpdateResetParameters()
+        static void OnQuitCommandReceived()
         {
-            var newResetParameters = m_BrainBatcher.GetEnvironmentParameters();
-            if (newResetParameters != null)
+#if UNITY_EDITOR
+            EditorApplication.isPlaying = false;
+#endif
+            Application.Quit();
+        }
+
+        void OnRLInputReceived(UnityRLInputParameters inputParams)
+        {
+            m_IsInference = inputParams.isTraining;
+        }
+
+        private void UpdateResetParameters(EnvironmentResetParameters newResetParameters)
+        {
+            if (newResetParameters.resetParameters != null)
             {
-                foreach (var kv in newResetParameters.FloatParameters)
+                foreach (var kv in newResetParameters.resetParameters)
                 {
                     resetParameters[kv.Key] = kv.Value;
                 }
-                customResetParameters = newResetParameters.CustomResetParameters;
             }
+            customResetParameters = newResetParameters.customResetParameters;
         }
 
         /// <summary>
@@ -511,33 +523,8 @@ namespace MLAgents
                 m_ModeSwitched = false;
             }
 
-            if ((m_IsCommunicatorOn) &&
-                (m_LastCommunicatorMessageNumber != m_BrainBatcher.GetNumberMessageReceived()))
+            if (!m_FirstAcademyReset)
             {
-                m_LastCommunicatorMessageNumber = m_BrainBatcher.GetNumberMessageReceived();
-                if (m_BrainBatcher.GetCommand() ==
-                    CommunicatorObjects.CommandProto.Reset)
-                {
-                    UpdateResetParameters();
-
-                    SetIsInference(!m_BrainBatcher.GetIsTraining());
-
-                    ForcedFullReset();
-                }
-
-                if (m_BrainBatcher.GetCommand() ==
-                    CommunicatorObjects.CommandProto.Quit)
-                {
-#if UNITY_EDITOR
-                    EditorApplication.isPlaying = false;
-#endif
-                    Application.Quit();
-                    return;
-                }
-            }
-            else if (!m_FirstAcademyReset)
-            {
-                UpdateResetParameters();
                 ForcedFullReset();
             }
 
